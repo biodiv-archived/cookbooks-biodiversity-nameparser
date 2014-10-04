@@ -1,6 +1,6 @@
 biodiversity-nameparser Cookbook
 =============
-Installs and configures [biodiversity taxonomic nameparser](https://github.com/GlobalNamesArchitecture/biodiversity) and a upstart or init daemon process.
+Installs and configures [biodiversity taxonomic nameparser](https://github.com/GlobalNamesArchitecture/biodiversity) as a upstart or init daemon process.
 
 Requirements
 ============
