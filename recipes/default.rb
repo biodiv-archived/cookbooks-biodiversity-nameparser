@@ -1,5 +1,5 @@
 #
-# Cookbook Name:: biodiv
+# Cookbook Name:: biodiv-nameparser
 # Recipe:: default
 #
 # Copyright 2014, YOUR_COMPANY_NAME
@@ -8,9 +8,27 @@
 #
 
 # install ruby
-apt_package "ruby2.0" do
-  action :install
+if node['platform'] == 'ubuntu' && node['platform_version'].to_f <= 14.04
+  apt_package "ruby2.0" do
+    action :install
+  end
+else
+  apt_repository 'brightbox-ruby-ng' do
+    uri        'http://ppa.launchpad.net/brightbox/ruby-ng/ubuntu'
+    distribution node['lsb']['codename']
+    components ['main', 'stable']
+  end
+
+  e = apt_update 'update' do
+    action :nothing
+  end
+  e.run_action(:update)
+
+  apt_package "ruby" do
+    action :install
+  end
 end
+
 
 # create user
 #  create the user that runs nameparser
@@ -36,7 +54,7 @@ end
 
 # install biodiversity gem
 bash "install biodiversity gem" do
-  code "gem2.0 install biodiversity"
+  code "gem install biodiversity"
   not_if "test -f #{node.nameparser.binary}"
 end
 
@@ -57,11 +75,29 @@ template "/etc/init/nameparser.conf" do
   notifies :restart, resources(:service => "nameparser"), :immediately
 end
 
-# init script
-template "/etc/init.d/nameparser" do
-  source "nameparser-init.erb"
-        only_if { platform?("redhat", "centos", "fedora", "debian") }
-  mode 0744
-  notifies :restart, resources(:service => "nameparser"), :immediately
-end
+systemd_unit 'nameparser.service' do
+  content <<-EOU.gsub(/^\s+/, '')
+  [Unit]
+  Description=biodiversity nameparser
+  Requires=network-online.target
+  After=network-online.target
 
+
+  [Service]
+  PIDFile=/var/run/nameparser.pid
+  WorkingDirectory=#{node.nameparser.home}
+  User=#{node.nameparser.user}
+  Group=#{node.nameparser.group}
+  Environment=GOMAXPROCS=2
+  Restart=on-failure
+  ExecStart=#{node.nameparser.binary} --background --start -- ""
+  ExecReload=/bin/kill -HUP $MAINPID
+  KillSignal=SIGINT
+
+
+  [Install]
+  WantedBy=multi-user.target
+  EOU
+
+  action [:create, :enable, :start]
+end
